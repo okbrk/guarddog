@@ -1,55 +1,62 @@
-[project]
-name = "guarddog"
-requires-python = ">=3.10"
-dynamic = ["version"]
-
-[project.scripts]
-guarddog = "guarddog.cli:cli"
-
 [tool.poetry]
 name = "guarddog"
-description = "GuardDog is a CLI tool for identifying malicious open source packages"
+description = "GuardDog is a CLI tool to Identify malicious PyPI packages"
 authors = ["Ellen Wang", "Christophe Tafani-Dereeper"]
 license = "Apache-2.0"
-readme = "README.md"
+readme = "pypi.rst"
 repository = "https://github.com/DataDog/guarddog"
-version = "3.2.0"
+version = "0.0.0"
 
 [tool.poetry.scripts]
 guarddog = "guarddog.cli:cli"
 
 [tool.poetry.dependencies]
-click = "^8.4.1"
-configparser = ">=5.3,<8.0"
-disposable-email-domains = ">=0.0.237,<0.0.238"
-prettytable="^3.17.0"
 python = ">=3.10,<4"
-python-dateutil = "^2.9.0"
-python-whois = ">=0.8,<0.10"
-# 1.12+ requires new version of libgit2 which is not avaiable in Alpine
-pygit2 = ">=1.11,<1.19"
-pyyaml = "^6.0"
-requests = "^2.34.0"
+docker = "==6.0.1"
+# NOTE: Before https://github.com/returntocorp/semgrep/issues/6631 is addressed, we can't seem to upgrade past 0.112.1
+semgrep = "==0.112.1"
+requests = "==2.28.2"
+tqdm = "==4.64.0"
+python-dotenv = "==0.20.0"
+python-dateutil = "==2.8.2"
+attrs = "==21.4.0"
+boltons = "==21.0.0"
+bracex = "==2.3.post1"
+charset-normalizer = "==2.1.0"
+click = "==8.1.3"
+click-option-group = "==0.5.5"
+colorama = "==0.4.5"
+defusedxml = "==0.7.1"
+face = "==20.1.1"
+glom = "==22.1.0"
+idna = "==3.4"
+jsonschema = "==4.17.3"
+pyparsing = "==3.0.9"
+python-lsp-jsonrpc = "==1.0.0"
+six = "==1.16.0"
+typing-extensions = "==4.3.0"
+ujson = "==5.7.0"
+urllib3 = "==1.26.11"
+wcmatch = "==8.4"
+websocket-client = "==1.5.1"
+mypy-extensions = "==0.4.3"
+pathspec = "==0.9.0"
+platformdirs = "==3.0.0"
+tomli = "==2.0.1"
+pathos = ">=0.2.9,<0.4.0"
+pytest = "^7.1.2"
+flake8 = "^5.0.4"
+python-whois = "^0.8.0"
+termcolor = "^2.1.0"
+setuptools = "^65.6.3"
+tarsafe = "^0.0.4"
 semantic-version = "^2.10.0"
-tarsafe = "^0.0.6"
-termcolor = "^3.3.0"
-urllib3 = "^2.7.0"
-yara-python = "^4.5.4"
-nono-py = ">=0.15.0"
-packaging = ">=26.3"
-boto3 = "^1.43"
-typing-extensions = "^4.16.0"
+pyyaml = "^6.0"
+pygit2 = "^1.11.1"
+configparser = "^5.3.0"
+prettytable="^3.6.0"
 
-[tool.poetry.group.dev.dependencies]
-coverage = "^7.15.4"
-# Used by the eval clustering tooling (evals/cluster.py) for fuzzy fingerprint matching
-python-tlsh = "^4.5.0"
-flake8 = ">=5.0.4,<8.0.0"
-mypy = "^2.3.1"
-pytest = ">=9.1.1"
-pytest-mock = "^3.11.1"
-sarif-tools = ">=2,<4"
-black = "^26.3.1"
+[tool.poetry.dev-dependencies]
 
 [tool.pytest.ini_options]
 filterwarnings = [
@@ -57,17 +64,11 @@ filterwarnings = [
 ]
 testpaths = [
     "tests/analyzer/metadata",
-    "tests/analyzer/sourcecode",
-    "tests/core",
-    "tests/reporters"
+    "tests/core"
 ]
-
-[tool.black]
-target-version = ["py310"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[solver]
-min-release-age=7
+

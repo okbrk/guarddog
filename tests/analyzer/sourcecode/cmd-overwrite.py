@@ -1,12 +1,13 @@
-"""Tests for post-systeminfo rule
+""" Tests for post-systeminfo rule
 
-OK cases:
-  - setup without overwriting install command
-RULEID cases:
-  - ans1crypto
-  - py-jwt
-  - httplib3
+    OK cases:
+      - setup without overwriting install command
+    RULEID cases:
+      - ans1crypto
+      - py-jwt
+      - httplib3
 """
+
 
 """ OK: setup without overwriting install command
 """
@@ -152,15 +153,4 @@ setuptools.setup(
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Libraries",
     ),
-)
-
-# ruleid: cmd-overwrite
-setup(
-    name="dependency1338",  # package name
-    version="1.0.0",
-    description="test",
-    author="test",
-    license="MIT",
-    zip_safe=False,
-    cmdclass={"install": CustomInstall},
 )

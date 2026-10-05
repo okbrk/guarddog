@@ -1,86 +1,22 @@
 # GuardDog
 
-[![Test](https://github.com/DataDog/guarddog/actions/workflows/checks.yml/badge.svg)](https://github.com/DataDog/guarddog/actions/workflows/checks.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/DataDog/guarddog/badge)](https://securityscorecards.dev/viewer/?uri=github.com/DataDog/guarddog)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12273/badge)](https://www.bestpractices.dev/projects/12273)
+[![Test](https://github.com/DataDog/guarddog/actions/workflows/test.yml/badge.svg)](https://github.com/DataDog/guarddog/actions/workflows/test.yml) [![Static analysis](https://github.com/DataDog/guarddog/actions/workflows/semgrep.yml/badge.svg)](https://github.com/DataDog/guarddog/actions/workflows/semgrep.yml)
 
 <p align="center">
-  <img src="https://github.com/DataDog/guarddog/blob/v3/docs/images/logo.png?raw=true" alt="GuardDog" width="300" />
+  <img src="./docs/images/logo.png" alt="GuardDog" width="300" />
 </p>
 
-GuardDog is a CLI tool that identifies malicious PyPI and npm packages, Go modules, Rust crates, RubyGems, GitHub actions, or VSCode extensions. It runs static analysis on package source code (through YARA rules) and analyzes package metadata to detect supply chain attacks.
+GuardDog is a CLI tool that allows to identify malicious PyPI and npm packages. It runs a set of heuristics on the package source code (through Semgrep rules) and on the package metadata.
 
-**What makes GuardDog different:** Instead of just listing suspicious patterns, GuardDog correlates findings to identify actual **risks** based on attack chains. A package needs both the **capability** to perform an action (e.g., network access) and a **threat indicator** (e.g., suspicious domain) in the same file to be flagged as high risk.
+GuardDog can be used to scan local or remote PyPI and npm packages using any of the available [heuristics](#heuristics).
 
-It downloads and scans code from:
-
-* NPM: Packages hosted in [npmjs.org](https://www.npmjs.com/)
-* PyPI: Source files (tar.gz) packages hosted in [PyPI.org](https://pypi.org/)
-* Go: GoLang source files of repositories hosted in [GitHub.com](https://github.com)
-* Rust: Crates hosted on [crates.io](https://crates.io/)
-* RubyGems: Gem packages hosted in [rubygems.org](https://rubygems.org/)
-* GitHub Actions: Javascript source files of repositories hosted in [GitHub.com](https://github.com)
-* VSCode Extensions: Extensions (.vsix) packages hosted in [marketplace.visualstudio.com](https://marketplace.visualstudio.com/)
-
-![GuardDog demo usage](https://github.com/DataDog/guarddog/blob/v3/docs/images/demo.png?raw=true)
-
-## How GuardDog Works
-
-GuardDog uses a **risk-based detection model** that correlates code capabilities with threat indicators:
-
-1. **Detection**: Rules identify either **capabilities** (what code *can* do) or **threats** (suspicious indicators)
-2. **Correlation**: Capabilities and threats found in the same file form **risks** (cross-file matches also form risks, with downgraded severity)
-3. **Scoring**: Risks are scored (0-10) based on attack chain completeness and sophistication
-4. **Reporting**: Packages receive a severity rating (low/medium/high) with detailed risk breakdown
-
-### Why This Approach?
-
-Traditional SAST tools flag every suspicious pattern independently, leading to alert fatigue. GuardDog understands that:
-
-- **Capability alone** isn't malicious (network libraries should make HTTP requests)
-- **Threat indicators alone** might be false positives (test fixtures, documentation)
-- **Capability + Threat together** indicates actual risk (code that can *and will* do something malicious)
-
-### Risk Scoring
-
-Packages receive a score from **0-10** based on four factors:
-
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| **Severity** | 30% | Highest severity finding (low/medium/high) |
-| **Attack Chain** | 20% | Presence of complete attack stages (early → mid/late) |
-| **Specificity** | 30% | How specific patterns are to malware vs legitimate code |
-| **Sophistication** | 20% | Technique advancement level |
-
-**Score Labels:**
-- **0**: No risks detected
-- **0.1-3**: Low risk (single-stage threats, low specificity)
-- **3.1-7.5**: Medium risk (partial attack chain, metadata indicators, or single-stage code findings)
-- **7.6-10**: High risk (multi-stage attack chain with source code evidence — near-certainty of compromise)
-
-**Attack Chain Stages** (based on MITRE ATT&CK):
-- **Early**: Initial access, execution capabilities
-- **Mid**: Persistence, defense evasion, credential access
-- **Late**: Command & control, exfiltration, impact
----
-### Check out the new Datadog Agent [integration](https://docs.datadoghq.com/integrations/guarddog/) and Cloud SIEM [content pack](https://app.datadoghq.com/security/siem/content-packs?query=guarddog) for GuardDog.
----
+![GuardDog demo usage](docs/images/demo.png)
 
 ## Getting started
 
 ### Installation
 
-The easiest way to run GuardDog is to use [`uvx`](https://docs.astral.sh/uv/guides/tools/):
-
 ```sh
-uvx guarddog pypi scan requests
-```
-
-To install it locally:
-
-```sh
-uv tool install guarddog
-# or
 pip install guarddog
 ```
 
@@ -90,8 +26,6 @@ Or use the Docker image:
 docker pull ghcr.io/datadog/guarddog
 alias guarddog='docker run --rm ghcr.io/datadog/guarddog'
 ```
-
-*Note: On Windows, the only supported installation method is Docker.*
 
 ### Sample usage
 
@@ -108,15 +42,8 @@ guarddog pypi scan requests --rules exec-base64 --rules code-execution
 # Scan the 'requests' package using all rules but one
 guarddog pypi scan requests --exclude-rules exec-base64
 
-# Scan a local package archive
+# Scan a local package
 guarddog pypi scan /tmp/triage.tar.gz
-
-# Scan a local package directory
-guarddog pypi scan /tmp/triage/
-
-# Scan a package stored in S3 (a folder/prefix or a single archive object)
-guarddog pypi scan s3://my-bucket/path/to/package/
-guarddog pypi scan s3://my-bucket/path/to/package.tar.gz
 
 # Scan every package referenced in a requirements.txt file of a local folder
 guarddog pypi verify workspace/guarddog/requirements.txt
@@ -127,84 +54,73 @@ guarddog pypi verify --output-format=sarif workspace/guarddog/requirements.txt
 # Output JSON to standard output - works for every command
 guarddog pypi scan requests --output-format=json
 
-# All the commands also work on npm, go, crates, rubygems
+# All the commands also work on npm
 guarddog npm scan express
-
-guarddog go scan github.com/DataDog/dd-trace-go
-
-guarddog go verify /tmp/repo/go.mod
-
-# Scan Rust crates
-guarddog crates scan serde
-
-guarddog crates verify /tmp/repo/Cargo.lock
-
-# Scan RubyGems packages
-guarddog rubygems scan rails
-
-guarddog rubygems verify /tmp/repo/Gemfile.lock
-
-# Additionally can support scanning GitHub actions that are implemented in JavaScript
-guarddog github_action scan DataDog/synthetics-ci-github-action
-
-guarddog github_action verify /tmp/repo/.github/workflows/main.yml
-
-# Scan VSCode extensions from the marketplace
-guarddog extension scan ms-python.python
-
-# Scan a specific version of a VSCode extension
-guarddog extension scan ms-python.python --version 2023.20.0
-
-# Scan a local VSCode extension directory or VSIX archive
-guarddog extension scan /tmp/my-extension/
 
 # Run in debug mode
 guarddog --log-level debug npm scan express
 ```
 
 
-## Sandboxed Scanning
+## Heuristics
 
-When scanning packages, GuardDog runs source code analysis inside a **kernel-level sandbox** (Linux via Landlock, macOS via Seatbelt, using [nono](https://github.com/always-further/nono-py)). The sandbox blocks all network access and restricts filesystem operations to only the paths needed for analysis. This protects against malicious packages that attempt to execute code during archive extraction or scanning.
+GuardDog comes with 2 types of heuristics:
 
-By default, the sandbox is required: if it's not available on the platform, the scan fails instead of running unprotected. To scan without it, you must explicitly pass `--no-sandbox`:
+* [**Source code heuristics**](https://github.com/DataDog/guarddog/tree/main/guarddog/analyzer/sourcecode): Semgrep rules running against the package source code.
 
-```sh
-# Default: require the sandbox, exit with an error if it's unavailable
-guarddog pypi scan requests
+* [**Package metadata heuristics**](https://github.com/DataDog/guarddog/tree/main/guarddog/analyzer/metadata): Python or Javascript heuristics running against the package metadata on PyPI or npm.
 
-# Explicitly disable the sandbox
-guarddog pypi scan requests --no-sandbox
-```
+<!-- BEGIN_RULE_LIST -->
+### PyPI
 
-For remote packages, three phases run with different privilege levels:
-1. **Download** and **metadata analysis** run without sandbox (need network access)
-2. **Archive extraction** runs in a sandboxed subprocess (network blocked, filesystem restricted)
-3. **Source code analysis** (YARA) runs in the main process after a sandbox is applied (network blocked, filesystem restricted to extracted files)
+Source code heuristics:
 
-The sandbox was introduced to mitigate path traversal and code execution vulnerabilities during archive extraction (CVE-2022-23530, CVE-2022-23531, CVE-2026-22870, CVE-2026-22871).
+| **Heuristic** | **Description** |
+|:-------------:|:---------------:|
+| shady-links | Identify when a package contains an URL to a domain with a suspicious extension |
+| obfuscation | Identify when a package uses a common obfuscation method often used by malware |
+| exfiltrate-sensitive-data | Identify when a package reads and exfiltrates sensitive data from the local system |
+| download-executable | Identify when a package downloads and makes executable a remote binary |
+| exec-base64 | Identify when a package dynamically executes base64-encoded code |
+| silent-process-execution | Identify when a package silently executes an executable |
+| steganography | Identify when a package retrieves hidden data from an image and executes it |
+| code-execution | Identify when an OS command is executed in the setup.py file |
+| cmd-overwrite | Identify when the 'install' command is overwritten in setup.py, indicating a piece of code automatically running when the package is installed |
 
-## Scanning packages from S3
+Metadata heuristics:
 
-GuardDog can scan a package stored in S3, either as a folder/prefix or a single archive object:
+| **Heuristic** | **Description** |
+|:-------------:|:---------------:|
+| empty_information | Identify packages with an empty description field |
+| release_zero | Identify packages with an release version that's 0.0 or 0.0.0 |
+| typosquatting | Identify packages that are named closely to an highly popular package |
+| potentially_compromised_email_domain | Identify when a package maintainer e-mail domain (and therefore package manager account) might have been compromised |
+| repository_integrity_mismatch | Identify packages with a linked GitHub repository where the package has extra unexpected files |
 
-```sh
-guarddog npm scan s3://my-bucket/path/to/package/
-guarddog npm scan s3://my-bucket/path/to/package.tar.gz
-```
 
-This uses your existing AWS credentials (environment variables, `~/.aws`, SSO, or an IAM role). GuardDog verifies authentication via STS before doing anything and exits with an error if no valid credentials are found. The objects are synced to a temporary directory, scanned under the sandbox like any other untrusted content, and removed from disk afterward.
+### npm
 
-## Rules
+Source code heuristics:
 
-GuardDog uses two types of detection rules, both participating in the risk-based scoring engine:
+| **Heuristic** | **Description** |
+|:-------------:|:---------------:|
+| npm-serialize-environment | Identify when a package serializes 'process.env' to exfiltrate environment variables |
+| npm-silent-process-execution | Identify when a package silently executes an executable |
+| shady-links | Identify when a package contains an URL to a domain with a suspicious extension |
+| npm-exec-base64 | Identify when a package dynamically executes code through 'eval' |
+| npm-install-script | Identify when a package has a pre or post-install script automatically running commands |
 
-* **Source code rules** (YARA): Static analysis of package source code detecting capabilities and threats
-* **Metadata rules** (Python detectors): Analysis of package registry metadata detecting supply chain attack indicators
+Metadata heuristics:
 
-For the full list of rules per ecosystem, see **[RULES.md](RULES.md)**.
+| **Heuristic** | **Description** |
+|:-------------:|:---------------:|
+| empty_information | Identify packages with an empty description field |
+| release_zero | Identify packages with an release version that's 0.0 or 0.0.0 |
+| potentially_compromised_email_domain | Identify when a package maintainer e-mail domain (and therefore package manager account) might have been compromised |
+| typosquatting | Identify packages that are named closely to an highly popular package |
 
-For guidance on writing new rules, see **[WRITING_RULES.md](WRITING_RULES.md)**.
+
+<!-- END_RULE_LIST -->
 
 ## Running GuardDog in a GitHub Action
 
@@ -240,14 +156,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
 
-      - run: uvx guarddog pypi verify requirements.txt --output-format sarif --exclude-rules repository_integrity_mismatch > guarddog.sarif
+      - name: Install GuardDog
+        run: pip install guarddog
+
+      - run: guarddog pypi verify requirements.txt --output-format sarif --exclude-rules repository_integrity_mismatch > guarddog.sarif
 
       - name: Upload SARIF file to GitHub
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v2
         with:
           category: guarddog-builtin
           sarif_file: guarddog.sarif
@@ -258,6 +180,16 @@ jobs:
 
 ### Running a local version of GuardDog
 
+#### Using pip
+
+* Ensure `>=python3.10` is installed
+* Clone the repository
+* Create a virtualenv: `python3 -m venv venv && source venv/bin/activate`
+* Install requirements: `pip install -r requirements.txt`
+* Run GuardDog using `python -m guarddog`
+
+#### Using poetry
+
 * Ensure poetry has an env with `python >=3.10` `poetry env use 3.10.0`
 * Install dependencies `poetry install`
 * Run guarddog `poetry run guarddog` or `poetry shell` then run `guarddog`
@@ -266,11 +198,9 @@ jobs:
 
 Running all unit tests: `make test`
 
-Running unit tests against package metadata heuristics: `make test-metadata-rules` (tests are [here](https://github.com/DataDog/guarddog/tree/v3/tests/analyzer/metadata)).
+Running unit tests against Semgrep rules: `make test-semgrep-rules` (tests are [here](https://github.com/DataDog/guarddog/tree/main/tests/analyzer/sourcecode)). These use the standard methodology for [testing Semgrep rules](https://semgrep.dev/docs/writing-rules/testing-rules/).
 
-### Benchmarking
-
-You can run GuardDog on legitimate and malicious packages to determine false positives and false negatives. See [./tests/samples](./tests/samples)
+Running unit tests against package metadata heuristics: `make test-metadata-rules` (tests are [here](https://github.com/DataDog/guarddog/tree/main/tests/analyzer/metadata)).
 
 ### Code quality checks
 
@@ -284,51 +214,13 @@ flake8 guarddog --count --select=E9,F63,F7,F82 --show-source --statistics --excl
 flake8 guarddog --count --max-line-length=120 --statistics --exclude tests/analyzer/sourcecode,tests/analyzer/metadata/resources,evaluator/data --ignore=E203,W503
 ```
 
-### Configuration via Environment Variables
-
-GuardDog's behavior can be customized using environment variables:
-
-#### General Configuration
-
-| Environment Variable | Description | Default Value |
-|---------------------|-------------|---------------|
-| `GUARDDOG_PARALLELISM` | Number of threads to use for parallel processing | Number of CPUs available |
-| `GUARDDOG_VERIFY_EXHAUSTIVE_DEPENDENCIES` | Analyze all possible versions of dependencies (`true`/`false`) | `false` |
-| `GUARDDOG_NPM_INCLUDE_DEV_DEPENDENCIES` | Include `devDependencies` when scanning npm `package.json` files (`true`/`false`); can also be toggled per-invocation with `guarddog npm verify --include-dev-dependencies` | `false` |
-| `GUARDDOG_TOP_PACKAGES_CACHE_LOCATION` | Location of the top packages cache directory | `guarddog/analyzer/metadata/resources` |
-| `GUARDDOG_YARA_EXT_EXCLUDE` | Comma-separated list of file extensions to exclude from YARA scanning | `ini,md,rst,txt,lock,json,yaml,yml,toml,xml,html,csv,sql,pdf,doc,docx,ppt,pptx,xls,xlsx,odt,changelog,readme,makefile,dockerfile,pkg-info,d.ts` |
-
-#### Metadata Rule Configuration
-
-| Environment Variable | Description | Default Value |
-|---------------------|-------------|---------------|
-| `GUARDDOG_NEW_DEPENDENCY_RISK_THRESHOLD` | Minimum risk score for a newly introduced dependency to flag the parent package in the `risky_new_dependency` rule | `5.0` |
-
-#### Archive Extraction Security Limits
-
-GuardDog implements multiple security checks when extracting package archives to protect against compression bombs and file descriptor exhaustion attacks:
-
-| Environment Variable | Description | Default Value |
-|---------------------|-------------|---------------|
-| `GUARDDOG_MAX_UNCOMPRESSED_SIZE` | Maximum allowed uncompressed size in bytes (prevents disk space exhaustion) | 2147483648 (2 GB) |
-| `GUARDDOG_MAX_COMPRESSION_RATIO` | Maximum allowed compression ratio (detects suspicious compression patterns) | 100 (100:1) |
-| `GUARDDOG_MAX_FILE_COUNT` | Maximum number of files allowed in an archive (prevents file descriptor/inode exhaustion) | 100000 |
-
-## Maintainers
-
-* [Sebastian Obregoso](https://www.linkedin.com/in/sebastianobregoso/)
-* [Ian Kretz](https://github.com/ikretz)
-* [Tesnim Hamdouni](https://github.com/tesnim5hamdouni)
-
-## Authors
-* [Ellen Wang](https://www.linkedin.com/in/ellen-wang-4bb5961a0/)
-* [Christophe Tafani-Dereeper](https://github.com/christophetd)
-
 ## Acknowledgments
 
-Inspiration:
-* [Backstabber’s Knife Collection: A Review of Open Source Software Supply Chain Attacks](https://arxiv.org/pdf/2005.09535)
+Authors: 
+* [Ellen Wang](https://www.linkedin.com/in/ellen-wang-4bb5961a0/)
+* [Christophe Tafani-Dereeper](https://github.com/christophetd)
+* [Vladimir de Turckheim](https://www.linkedin.com/in/vladimirdeturckheim/)
+
+Inspiration: 
 * [What are Weak Links in the npm Supply Chain?](https://arxiv.org/pdf/2112.10165.pdf)
 * [A Survey on Common Threats in npm and PyPi Registries](https://arxiv.org/pdf/2108.09576.pdf)
-* [A Benchmark Comparison of Python Malware Detection Approaches](https://arxiv.org/pdf/2209.13288.pdf)
-* [Towards Measuring Supply Chain Attacks on Package Managers for Interpreted Languages](https://arxiv.org/pdf/2002.01139)

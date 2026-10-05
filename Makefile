@@ -1,6 +1,6 @@
-.PHONY: test test-metadata-rules test-core docs
+.PHONY: test test-semgrep-rules test-metadata-rules test-core docs
 
-test: test-yara-rules test-metadata-rules test-core test-reporters coverage-report
+test: test-semgrep-rules test-metadata-rules test-core coverage-report
 
 type-check:
 	mypy --install-types --non-interactive guarddog
@@ -9,12 +9,8 @@ lint:
 	flake8 guarddog --count --select=E9,F63,F7,F82 --show-source --statistics --exclude tests/analyzer/sourcecode,tests/analyzer/metadata/resources,evaluator/data
 	flake8 guarddog --count --max-line-length=120 --statistics --exclude tests/analyzer/sourcecode,tests/analyzer/metadata/resources,evaluator/data --ignore=E203,W503
 
-format:
-	black --check guarddog && black guarddog || (black guarddog && exit 1)
-	black --check scripts && black scripts || (black scripts && exit 1)
-
-test-yara-rules:
-	COVERAGE_FILE=.coverage_yara coverage run -m pytest tests/analyzer/sourcecode
+test-semgrep-rules:
+	semgrep --metrics off --quiet --test --config guarddog/analyzer/sourcecode tests/analyzer/sourcecode
 
 test-metadata-rules:
 	COVERAGE_FILE=.coverage_metadata coverage run -m pytest tests/analyzer/metadata
@@ -22,18 +18,9 @@ test-metadata-rules:
 test-core:
 	COVERAGE_FILE=.coverage_core coverage run -m pytest tests/core
 
-test-reporters:
-	COVERAGE_FILE=.coverage_reporters coverage run -m pytest tests/reporters
-
 coverage-report:
-	coverage combine .coverage_yara .coverage_metadata .coverage_core .coverage_reporters
+	coverage combine .coverage_metadata .coverage_core
 	coverage report
 
 docs:
-	python scripts/generate-rules-docs.py RULES.md
-
-update-top-pkg-list:
-	python -m guarddog.analyzer.metadata.npm.typosquatting
-	python -m guarddog.analyzer.metadata.pypi.typosquatting
-	
-	
+	python scripts/generate-rules-docs.py README.md

@@ -1,43 +1,25 @@
-"""Compromised Email Detector
+""" Compromised Email Detector
 
 Detects if a maintainer's email domain might have been compromised.
 """
-
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from dateutil import parser
 from packaging import version
-from packaging.version import InvalidVersion
 
-from guarddog.analyzer.metadata.potentially_compromised_email_domain import (
-    PotentiallyCompromisedEmailDomainDetector,
-)
-
-from .utils import get_email_addresses
+from guarddog.analyzer.metadata.potentially_compromised_email_domain import PotentiallyCompromisedEmailDomainDetector
 
 
-def _safe_version_key(v: str):
-    """Sort key that tolerates legacy version strings (e.g. ``2004d``).
-
-    ``packaging`` 22.0 removed ``LegacyVersion``, so ``version.parse`` raises
-    ``InvalidVersion`` on non-PEP-440 strings.  Return a minimum sentinel so
-    legacy versions sort as oldest rather than crashing the whole rule (#389).
-    """
-    try:
-        return version.parse(v)
-    except InvalidVersion:
-        return version.parse("0")
-
-
-class PypiPotentiallyCompromisedEmailDomainDetector(
-    PotentiallyCompromisedEmailDomainDetector
-):
+class PypiPotentiallyCompromisedEmailDomainDetector(PotentiallyCompromisedEmailDomainDetector):
     def __init__(self):
         super().__init__("pypi")
 
-    def get_email_addresses(self, package_info: dict):
-        return get_email_addresses(package_info)
+    def get_email_addresses(self, package_info: dict) -> list[str]:
+        author_email = package_info["info"]["author_email"]
+        maintainer_email = package_info["info"]["maintainer_email"]
+        email = author_email or maintainer_email
+        return [email]
 
     def get_project_latest_release_date(self, package_info) -> Optional[datetime]:
         """
@@ -50,18 +32,16 @@ class PypiPotentiallyCompromisedEmailDomainDetector(
             datetime: creation date of the most recent in releases
         """
         releases = package_info["releases"]
-        sorted_versions = sorted(releases.keys(), key=_safe_version_key, reverse=True)
-        earlier_versions = (
-            sorted_versions[:-1] if len(sorted_versions) > 1 else sorted_versions
+        sorted_versions = sorted(
+            releases.keys(), key=lambda r: version.parse(r), reverse=True
         )
+        earlier_versions = sorted_versions[:-1]
 
         for early_version in earlier_versions:
             version_release = releases[early_version]
 
             if len(version_release) > 0:  # if there's a distribution for the package
                 upload_time_text = version_release[0]["upload_time_iso_8601"]
-                release_date = parser.isoparse(upload_time_text).replace(
-                    tzinfo=timezone.utc
-                )
+                release_date = parser.isoparse(upload_time_text).replace(tzinfo=None)
                 return release_date
         raise Exception("could not find release date")

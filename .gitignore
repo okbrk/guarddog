@@ -12,8 +12,4 @@ wheels/
 *.egg-info/
 build/
 .coverage*
-.semgrep
-.cache
-evals/workdir/
-evals/workdir*/
-tests/rule_fp_review/
+
