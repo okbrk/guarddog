@@ -169,6 +169,10 @@ class Analyzer:
                 rules
             )
 
+        if rules is not None and len(rules) == 0:
+            log.debug("No source code rules selected, skipping semgrep")
+            return {"results": results, "errors": errors, "issues": issues}
+
         try:
             log.debug(f"Running source code rules against {path}")
             response = self._invoke_semgrep(target=path, rules=rules_path)
